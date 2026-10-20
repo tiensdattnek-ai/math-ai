@@ -1,0 +1,75 @@
+name: Publish GGUF Release from Actions Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Run ID cua workflow Export GGUF da thanh cong"
+        required: true
+        default: "39390161957"
+        type: string
+      tag:
+        description: "Tag cua GitHub Release dich"
+        required: true
+        default: "gguf-v1"
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Tai artifact GGUF tu run export
+        uses: actions/download-artifact@v4
+        with:
+          name: gia-su-toan-gguf
+          path: release-files
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Kiem tra GGUF
+        id: verify
+        run: |
+          python3 - << 'PY'
+          import glob, hashlib, json, os
+          files = glob.glob('release-files/**/*.gguf', recursive=True)
+          assert len(files) == 1, files
+          f = files[0]
+          size = os.path.getsize(f)
+          assert size < 2147483648, f'File {size} vuot gioi han 2GiB cua Release asset'
+          assert open(f,'rb').read(4) == b'GGUF', 'Sai dinh dang GGUF'
+          sha = hashlib.sha256()
+          with open(f,'rb') as fh:
+              for chunk in iter(lambda: fh.read(8*1024*1024), b''):
+                  sha.update(chunk)
+          print(f'Verified: {f} ({size/1e9:.3f} GB) sha256={sha.hexdigest()}')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              out.write(f'gguf={f}\nsha256={sha.hexdigest()}\nbytes={size}\n')
+          PY
+          ls -lh release-files
+
+      - name: Tao/cap nhat GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          GGUF: ${{ steps.verify.outputs.gguf }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
+            --title "AI Gia Su Toan - GGUF Q4_K_M" \
+            --notes "Model GGUF duoc xuat tu dong tu LoRA Adapter bang GitHub Actions. File chinh: gia-su-toan-qwen2.5-3b-q4_k_m.gguf (kem Modelfile de chay Ollama). SHA256: ${{ steps.verify.outputs.sha256 }}"
+          gh release upload "$TAG" "$GGUF" --clobber
+          for extra in Modelfile export_info.json SHA256SUMS.txt; do
+            found=$(find release-files -name "$extra" -type f | head -n 1)
+            if [ -n "$found" ]; then gh release upload "$TAG" "$found" --clobber; fi
+          done
+          echo "## GGUF Release" >> "$GITHUB_STEP_SUMMARY"
+          echo "Direct download: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/$(basename "$GGUF")" >> "$GITHUB_STEP_SUMMARY"
+          echo "Bytes: ${{ steps.verify.outputs.bytes }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "SHA256: \`${{ steps.verify.outputs.sha256 }}\`" >> "$GITHUB_STEP_SUMMARY"

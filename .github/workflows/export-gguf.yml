@@ -1,0 +1,122 @@
+name: Export GGUF from LoRA (auto)
+
+# Chay hoan toan tren may chu GitHub - nguoi dung khong can mo Colab.
+# Cach dung: tab Actions -> "Export GGUF from LoRA (auto)" -> Run workflow.
+# Nguon Adapter theo thu tu uu tien:
+#   1) thu muc lora_adapter/ trong repo (neu co)
+#   2) adapter_url (link zip truc tiep hoac Google Drive share link)
+#   3) asset zip trong GitHub Release co tag adapter_release_tag (ke ca draft)
+
+on:
+  workflow_dispatch:
+    inputs:
+      adapter_url:
+        description: "Link tai Adapter (.zip) - de trong neu dung Release asset/repo folder"
+        required: false
+        default: ""
+        type: string
+      adapter_release_tag:
+        description: "Tag cua Release chua file Adapter .zip"
+        required: false
+        default: "lora-input"
+        type: string
+      base_model:
+        description: "Base model (de trong = auto theo adapter_config)"
+        required: false
+        default: ""
+        type: string
+      quant:
+        description: "Muc nen GGUF"
+        required: true
+        default: "Q4_K_M"
+        type: choice
+        options: [Q4_K_M, Q5_K_M, Q8_0]
+      publish_release:
+        description: "Dang GGUF thanh GitHub Release cong khai (chi khi file <= 2GiB)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: export-gguf
+  cancel-in-progress: false
+
+jobs:
+  export-gguf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      HF_HOME: /tmp/hf-home
+      PIP_NO_CACHE_DIR: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Giai phong dia runner (can nhieu cho cho model 3B)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cai thu vien (PyTorch CPU + Transformers/PEFT)
+        run: |
+          python -m pip install -q --upgrade pip
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "transformers>=4.44,<5" "peft>=0.12" accelerate safetensors sentencepiece huggingface_hub gdown
+
+      - name: Gop LoRA + Convert + Nen GGUF
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/export_gguf_ci.py \
+            --adapter-url "${{ inputs.adapter_url }}" \
+            --adapter-release-tag "${{ inputs.adapter_release_tag }}" \
+            --base-model "${{ inputs.base_model }}" \
+            --quant "${{ inputs.quant }}"
+
+      - name: Tai GGUF thanh Actions Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gia-su-toan-gguf
+          path: outputs/
+          retention-days: 30
+          compression-level: 0
+
+      - name: (Tuy chon) Dang GitHub Release
+        if: ${{ inputs.publish_release }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FILE=$(ls outputs/*.gguf | head -1)
+          SIZE=$(stat -c%s "$FILE")
+          echo "File: $FILE ($SIZE bytes)"
+          if [ "$SIZE" -gt 2147483648 ]; then
+            echo "::warning::File qua gioi han 2GiB cua Release asset - chi giu ban Artifact o tren."
+            exit 0
+          fi
+          gh release view gguf-v1 >/dev/null 2>&1 || gh release create gguf-v1 \
+            --title "AI Gia Su Toan - GGUF" \
+            --notes "File GGUF duoc xuat tu dong tu LoRA Adapter bang GitHub Actions. Xem HUONG_DAN_SU_DUNG_GGUF.md trong repo."
+          gh release upload gguf-v1 "$FILE" outputs/Modelfile outputs/SHA256SUMS.txt --clobber
+
+      - name: Tom tat ket qua
+        if: always()
+        run: |
+          {
+            echo "## Ket qua xuat GGUF"
+            ls -lh outputs/ 2>/dev/null || echo "Chua co file output - xem log cac buoc tren."
+            cat outputs/export_info.json 2>/dev/null || true
+          } >> "$GITHUB_STEP_SUMMARY"

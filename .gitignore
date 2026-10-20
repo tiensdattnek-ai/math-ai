@@ -1,0 +1,17 @@
+# Ket qua train (rat to - khong day len git)
+outputs/
+merged_16bit/
+*.gguf
+*.safetensors
+
+# Python / Jupyter
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+
+# He dieu hanh / trinh soan thao
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

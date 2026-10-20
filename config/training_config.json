@@ -1,0 +1,40 @@
+{
+  "base_model": "unsloth/Qwen2.5-3B-Instruct",
+  "base_model_ghichu": "Qwen2.5-Math khong co ban 3B (chi 1.5B/7B) nen o muc 3B dung Qwen2.5-3B-Instruct: tieng Viet tot, Toan cot loi da co san tu pretrain, fine-tune de hoc phong cach gia su SGK Viet Nam",
+  "max_seq_length": 2048,
+  "load_in_4bit": true,
+  "lora": {
+    "r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+    "use_rslora": true
+  },
+  "training": {
+    "num_train_epochs": 2,
+    "per_device_train_batch_size": 2,
+    "gradient_accumulation_steps": 8,
+    "learning_rate": 0.0002,
+    "lr_scheduler_type": "cosine",
+    "warmup_ratio": 0.05,
+    "logging_steps": 10,
+    "save_strategy": "epoch",
+    "optim": "adamw_8bit",
+    "weight_decay": 0.01,
+    "bf16": true,
+    "packing": false
+  },
+  "dataset": {
+    "synthetic_vn": "data/train.jsonl",
+    "open_subset_orca_vi": 4000,
+    "open_subset_metamath_vi": 4000,
+    "max_open_answer_chars": 3000
+  },
+  "gguf": {
+    "quantization": ["q4_k_m", "q8_0"],
+    "q4_k_m_ghichu": "~2.0 GB, chay laptop 8GB RAM - BAN MAC DINH nen dung",
+    "q8_0_ghichu": "~3.3 GB, chat luong cao hon mot chút, can nhieu RAM hon",
+    "name_prefix": "gia-su-toan-qwen2.5-3b"
+  },
+  "thoi_gian_uoc_tinh_colab_t4": "Dataset ~14k mau, 2 epochs, seq 2048: khoang 2-4 gio tren T4 free (co the bi gioi han phien Colab free - hay luu checkpoint len Google Drive). Neu muon nhanh de thu: epochs=1 va chi dung data/train.jsonl (5.7k mau) khoang 45-90 phut"
+}

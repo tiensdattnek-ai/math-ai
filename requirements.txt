@@ -1,0 +1,13 @@
+# Cai tren Google Colab (GPU T4 tro len) hoac may co GPU NVIDIA >=12GB VRAM (khuyen nghi 16GB cho 3B QLoRA seq 2048)
+# Tren Colab, torch da cai san dung phien ban - chi can cai cac goi duoi day:
+unsloth
+datasets
+trl
+peft
+accelerate
+bitsandbytes
+transformers
+sentencepiece
+protobuf
+# Luu y: neu `pip install unsloth` bao loi tren Colab, dung lenh o trang chinh thuc:
+# https://docs.unsloth.ai/get-started/installing-+-updating  (chon muc Colab)

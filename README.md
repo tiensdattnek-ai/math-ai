@@ -23,6 +23,8 @@ Bấm nút **Open in Colab** ở đầu trang này để mở thẳng `Train_AI_
 ### Bước 3 — Tải GGUF về, chạy offline
 Ở Bước ⑬, file GGUF được lưu Google Drive hoặc tải thẳng về máy. Sau đó làm theo **`HUONG_DAN_SU_DUNG_GGUF.md`** (Ollama với file `Modelfile` đính kèm là cách nhanh nhất), và chấm chất lượng bằng 20 câu trong `data/test_prompts.md`.
 
+> 🛟 **Train xong nhưng bước xuất/tải GGUF báo không thấy file, trên Drive chỉ còn thư mục LoRA?** Đừng train lại. Mở ngay notebook cứu hộ **[CuuHo_Xuat_GGUF_Tu_LoRA_Colab.ipynb](https://colab.research.google.com/github/tiensdattnek-ai/math-ai/blob/main/CuuHo_Xuat_GGUF_Tu_LoRA_Colab.ipynb)** — nó tự tìm LoRA Adapter trên Drive, gộp vào model gốc và đóng gói GGUF thủ công bằng llama.cpp (15–30 phút). Phần train của bạn nằm trọn trong LoRA, đóng gói lỗi thì chỉ cần đóng gói lại.
+
 ## 🧠 Thiết kế model đã chốt với bạn
 
 | Thành phần | Lựa chọn | Lý do |

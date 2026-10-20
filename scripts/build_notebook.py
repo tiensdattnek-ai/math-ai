@@ -265,24 +265,71 @@ for q in CASES:
 
 cells.append(md(r"""
 ## Bước ⑫: Xuất GGUF (q4_k_m) 🎯
-Đây là bước tạo sản phẩm cuối. Unsloth sẽ gộp (merge) LoRA vào model gốc, chuyển sang GGUF (dùng llama.cpp bên dưới) và lượng tử hoá. Với model 3B: **q4_k_m ≈ 2.0 GB** (nên dùng), **q8_0 ≈ 3.3 GB**. Bước này có thể mất 5–20 phút và cần khá nhiều RAM/dung lượng đĩa tạm — nếu Lỗi, xem cách xuất thủ công ở cuối notebook.
+Đây là bước tạo sản phẩm cuối. Unsloth sẽ gộp (merge) LoRA vào model gốc, chuyển sang GGUF (dùng llama.cpp bên dưới) và lượng tử hoá. Với model 3B: **q4_k_m ≈ 2.0 GB** (nên dùng), **q8_0 ≈ 3.3 GB**. Bước này có thể mất 5–20 phút và cần khá nhiều RAM/dung lượng đĩa tạm.
+
+> ⚠️ **Đã ghi nhận trên thực tế:** hàm xuất GGUF của Unsloth có thể đặt file vào thư mục con/anh em hoặc lỗi ở khâu biên dịch llama.cpp/nén. Ô dưới đã vá bằng **quét đệ quy** mọi file `.gguf` trên 500 MB. Nếu vẫn trống, **đừng train lại** — mở notebook cứu hộ `CuuHo_Xuat_GGUF_Tu_LoRA_Colab.ipynb` (cùng repo) để xuất thủ công từ LoRA đã lưu.
 """))
 cells.append(code(r"""
-import glob, os
+import glob, os, shutil, traceback
 os.makedirs(GGUF_DIR, exist_ok=True)
+export_errors = []
 for q in QUANTS:
     print("Dang xuat GGUF:", q)
-    model.save_pretrained_gguf(GGUF_DIR, tokenizer, quantization_method=q)
+    try:
+        model.save_pretrained_gguf(GGUF_DIR, tokenizer, quantization_method=q)
+    except Exception as e:
+        export_errors.append(f"{q}: {e}")
+        traceback.print_exc()
+        print("Luu ý: Loi o day KHONG lam mat cong train - LoRA van an toan o", LORA_DIR)
 
-for f in sorted(glob.glob(f"{GGUF_DIR}/*.gguf")):
-    print(f" {f}  ({os.path.getsize(f)/1e9:.2f} GB)")
+def collect_gguf(min_size=500_000_000):
+    seen, out = set(), []
+    for cur, dirs, files in os.walk("/content"):
+        dirs[:] = [d for d in dirs if d not in ("drive", "sample_data", ".cache")]
+        for name in files:
+            if name.lower().endswith(".gguf"):
+                p = os.path.join(cur, name)
+                try:
+                    rp = os.path.realpath(p)
+                    if rp not in seen and os.path.getsize(p) >= min_size:
+                        seen.add(rp); out.append(p)
+                except OSError:
+                    pass
+    return sorted(out, key=lambda p: os.path.getsize(p))
+
+found = collect_gguf()
+print(f"\nTim thay {len(found)} file GGUF tren 500MB trong toan bo /content:")
+normalized = []
+for f in found:
+    print(f" {os.path.getsize(f)/1e9:6.2f} GB  {f}")
+    dst = os.path.join(GGUF_DIR, os.path.basename(f))
+    if os.path.abspath(f) != os.path.abspath(dst):
+        shutil.copy(f, dst)
+    normalized.append(dst)
+if not normalized:
+    print("\n!!! CHUA CO FILE GGUF NAO. DUNG TRAIN LAI !!!")
+    print("LoRA (toan bo cong train) van o:", LORA_DIR, "va ban sao len Drive tu Buoc 10 neu da bat.")
+    print("Mo notebook CuuHo_Xuat_GGUF_Tu_LoRA_Colab.ipynb trong cung repo de xuat GGUF thu cong tu LoRA (15-30 phut).")
+    if export_errors:
+        print("Loi tu Unsloth:", *export_errors, sep="\n - ")
+else:
+    print("\nDa gom GGUF ve:", GGUF_DIR)
 """))
 
 cells.append(md("## Bước ⑬: Lưu/Tải file GGUF (hãy làm NGAY kẻo Colab ngắt phiên mất file)"))
 cells.append(code(r"""
 import glob, shutil, os
-files = sorted(glob.glob(f"{GGUF_DIR}/*.gguf"))
-assert files, "Chua có file GGUF nao - kiem tra lai Loi o buoc 12"
+files = sorted(set(
+    glob.glob(f"{GGUF_DIR}/**/*.gguf", recursive=True) +
+    glob.glob(f"{GGUF_DIR}_gguf/**/*.gguf", recursive=True)
+))
+files = [f for f in files if os.path.getsize(f) > 500_000_000]
+if not files:
+    raise RuntimeError(
+        "Khong tim thay GGUF nao tren 500MB sau Buoc 12. DUNG TRAIN LAI: LoRA cua ban van an toan. "
+        "Hay mo notebook CuuHo_Xuat_GGUF_Tu_LoRA_Colab.ipynb (cung repo) de xuat GGUF thu cong tu LoRA tren Drive.")
+print("Cac file GGUF se luu/tai:")
+for f in files: print(f" {os.path.getsize(f)/1e9:.2f} GB  {f}")
 if drive_mounted:
     dst_dir = os.path.join(MOUNTED_DRIVE_DIR, "gguf")
     os.makedirs(dst_dir, exist_ok=True)
@@ -304,7 +351,7 @@ cells.append(code(r"""
 !pip install -q llama-cpp-python
 import glob
 from llama_cpp import Llama
-path = sorted(glob.glob(f"{GGUF_DIR}/*.gguf"))[0]  # lay file GGUF dau tien tim thay (q4_k_m hoac q8_0)
+path = sorted(glob.glob(f"{GGUF_DIR}/**/*.gguf", recursive=True))[0]  # tim de quy, lay file GGUF dau tien tim thay
 llm = Llama(model_path=path, n_ctx=4096, n_gpu_layers=-1, verbose=False)
 out = llm.create_chat_completion(messages=[
     {"role": "system", "content": SYSTEM_PROMPT},
@@ -326,7 +373,7 @@ cells.append(md(r"""
 | Colab ngắt phiên giữa chừng | Hết thời lượng free | Bật `LUU_LEN_DRIVE=True`; train tiếp từ checkpoint: nạp `model_name` là folder LoRA/checkpoint đã lưu trên Drive |
 | Model trả lời tiếng Anh hoặc lạc đề | Ít epoch/dữ liệu mở nhiễu | Chạy `BAN_CHINH` 2 epochs, hoặc tăng tỉ lệ dữ liệu tự sinh (sinh `--n 15000`) |
 | Model sinh không dừng, lặp | Thiếu token kết thúc (EOS) | Kiểm tra bước ⑨ đã gắn EOS; khi chạy Ollama thêm stop `<|im_end|>` (Modelfile đã có sẵn) |
-| `save_pretrained_gguf` báo Lỗi | Lỗi chuyển đổi llama.cpp | Xuất thủ công: trước hết `model.save_pretrained_merged("merged_16bit", tokenizer, save_method="merged_16bit")`, sau đó clone llama.cpp, chạy `convert_hf_to_gguf.py` rồi `llama-quantize ... Q4_K_M` (chi tiết ở cuối `scripts/export_gguf.py`) |
+| `save_pretrained_gguf` báo lỗi / bước tải báo không thấy GGUF | Hàm xuất của Unsloth đặt file lạc thư mục hoặc lỗi biên dịch llama.cpp/khâu nén | **ĐỪNG TRAIN LẠI.** Bước ⑫ đã quét đệ quy toàn bộ `/content`; nếu vẫn trống, mở notebook `CuuHo_Xuat_GGUF_Tu_LoRA_Colab.ipynb` cùng repo — tự tìm LoRA trên Drive, gộp và convert thủ công (15–30 phút) |
 | Chế độ gợi ý vẫn lộ đáp án | Model chưa học chắc ranh giới hai chế độ | Sinh thêm dữ liệu (tỉ lệ gợi ý tăng), nhấn mạnh trong prompt kiểm tra: *"đừng cho đáp án ngay"* |
 | Đáp án đúng nhưng lý giải sai công thức | Giới hạn 3B ở bài khó | Đây là Lỗi cần loại khi chấm bằng test_prompts; bài khó nên để AI cloud/giáo viên xử lý |
 

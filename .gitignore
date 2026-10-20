@@ -1,5 +1,6 @@
 # Ket qua train (rat to - khong day len git)
 outputs/
+.local-ai/
 merged_16bit/
 *.gguf
 *.safetensors

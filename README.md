@@ -25,6 +25,14 @@ Bấm nút **Open in Colab** ở đầu trang này để mở thẳng `Train_AI_
 
 > 🛟 **Train xong nhưng bước xuất/tải GGUF báo không thấy file, trên Drive chỉ còn thư mục LoRA?** Đừng train lại. Mở ngay notebook cứu hộ **[CuuHo_Xuat_GGUF_Tu_LoRA_Colab.ipynb](https://colab.research.google.com/github/tiensdattnek-ai/math-ai/blob/main/CuuHo_Xuat_GGUF_Tu_LoRA_Colab.ipynb)** — nó tự tìm LoRA Adapter trên Drive, gộp vào model gốc và đóng gói GGUF thủ công bằng llama.cpp (15–30 phút). Phần train của bạn nằm trọn trong LoRA, đóng gói lỗi thì chỉ cần đóng gói lại.
 
+## 🌐 Mở webchat thử trên cloud bằng GitHub Codespaces
+
+Nếu muốn trải nghiệm kiểu “bấm một link, cloud tự cài và mở webchat” mà **không biến GitHub Actions thành VPS**, hãy dùng cấu hình sẵn trong `webchat/` + `.devcontainer/`:
+
+👉 https://codespaces.new/tiensdattnek-ai/math-ai?quickstart=1
+
+Lần đầu mất khoảng 5–15 phút để tự cài Ollama, tải GGUF và mở Gradio ở cổng 7860. Đây là môi trường thử nghiệm tương tác của chính tài khoản GitHub của bạn, có hạn mức/thời gian tự dừng riêng — xem chị tiết và cảnh báo chi phí trong `webchat/README.md`.
+
 ## 🧠 Thiết kế model đã chốt với bạn
 
 | Thành phần | Lựa chọn | Lý do |

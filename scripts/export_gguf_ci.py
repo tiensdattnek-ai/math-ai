@@ -75,13 +75,15 @@ def prepare_adapter(args) -> Path:
         log("Dung Adapter trong repo:", repo_candidate)
         return find_adapter(repo_candidate)
 
-    # Uu tien 2: URL truc tiep (Google Drive share link hoac link zip thang)
+    # Uu tien 2: URL truc tiep (link file .zip HOAC link THU MUC Google Drive da chia se)
     if args.adapter_url:
-        out = download / "adapter.zip"
-        if "drive.google.com" in args.adapter_url:
-            run([sys.executable, "-m", "gdown", "--fuzzy", args.adapter_url, "-O", out])
+        if "drive.google.com" in args.adapter_url and "/folders/" in args.adapter_url:
+            # Link thu muc: tai ca thu muc, find_adapter() se tu loc dung adapter can dung
+            run([sys.executable, "-m", "gdown", "--folder", args.adapter_url, "-O", download])
+        elif "drive.google.com" in args.adapter_url:
+            run([sys.executable, "-m", "gdown", "--fuzzy", args.adapter_url, "-O", download / "adapter.zip"])
         else:
-            run(["curl", "-L", "--fail", args.adapter_url, "-o", out])
+            run(["curl", "-L", "--fail", args.adapter_url, "-o", download / "adapter.zip"])
 
     # Uu tien 3: Asset trong GitHub Release (ke ca ban draft chua publish)
     else:

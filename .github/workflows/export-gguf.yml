@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       adapter_url:
-        description: "Link tai Adapter (.zip) - de trong neu dung Release asset/repo folder"
+        description: "Link tai Adapter: file .zip HOAC link thu muc Google Drive (che do 'Bat ky ai co duong link') - de trong neu dung Release/repo folder"
         required: false
         default: ""
         type: string
